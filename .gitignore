@@ -1,0 +1,10 @@
+# Ignore secrets
+.env
+
+# Ignore silly config directories
+.vscode/
+
+# Sometimes nice to have local supabase tools, doesn't need to push though
+supabase/
+
+.DS_Store

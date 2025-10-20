@@ -171,8 +171,7 @@
 	var destinationMarker = L.marker(mapStartPos);
 	var routeLine = null;
 
-	var routeStartCoords = null;	// start and end coords of actual route
-	var routeEndCoords = null;
+	var x1, y1, x2, y2;
 
 	var startCoords = mapStartPos;	// start and end coords that we send to postgres
 	var endCoords = mapStartPos;
@@ -298,8 +297,6 @@
 
 	// Runs when we're pretty sure user is done looking for addresses
 	async function doneTyping (elementId) {
-		console.log("done typing");
-		console.log(elementId);
 
 		// hide other address-related elements
 		document.getElementById("initialMessage").style.display = "none";
@@ -317,10 +314,9 @@
 		try { 
 			// this is the actual async function to find addresses. the wait is while this is running
 			ogResults = await provider.search({ query: searchQuery });
-			console.log("did result search");
 		}
 		catch(error) {
-			console.log('caught error');
+			console.log('there was an error with the result search:' + error);
 			showAddressError();
 		}
 		hideAddressSpinner();
@@ -384,32 +380,37 @@
 
 			inFocus.value = address1.label;
 			if(inFocus == startBox) {
-				routeStartCoords = "" + address1.x + " " + address1.y;
+				x1 = address1.x;
+				y1 = address1.y;
 				// add start marker
 			}
 			else {
-				routeEndCoords = "" + address1.x + " " + address1.y;
+				x2 = address1.x;
+				y2 = address1.y;
 			}
 		}
 		if(button == document.getElementById("address2")) {
 			inFocus.value = address2.label;
 			if(inFocus == startBox) {
-				routeStartCoords = "" + address2.x + " " + address2.y;
+				x1 = address2.x;
+				y1 = address2.y;
 			}
 			else {
-				routeEndCoords = "" + address2.x + " " + address2.y;
+				x2 = address2.x;
+				y2 = address2.y;
 			}
 		}
 		if(button == document.getElementById("address3")) {
 			inFocus.value = address3.label;
 			if(inFocus == startBox) {
-				routeStartCoords = "" + address3.x + " " + address3.y;
+				x1 = address3.x;
+				y1 = address3.y;
 			}
 			else {
-				routeEndCoords = "" + address3.x + " " + address3.y;
+				x2 = address3.x;
+				y2 = address3.y;
 			}
 		}
-		console.log(routeStartCoords, routeEndCoords);
 	}
 
 
@@ -423,12 +424,9 @@
 
 	function addPolyline() {
 		// Get the input value and split it into individual coordinate pairs
-		console.log("route coords are: " + routeCoords)
 		const inputText = routeCoords;
 		const newText = inputText.substring(13,inputText.length - 2)
-		console.log(newText.substring(0, 100))
 		const coordinatePairs = newText.split(',');
-		console.log("coordinate pairs for route are:" + coordinatePairs)
 
 		// Extract latitude and longitude for each pair and create LatLng objects
 		// the .map method creates an array by running a function on every element from some collection. (in this case coordPairs)
@@ -437,7 +435,6 @@
 			return L.latLng(lng, lat);
 		});
 
-		console.log("coordinates are" + coordinates)
 		// Create a new polyline and add it to the map
 		if(route != null){route.remove();}
 		if(startPoint != null){startPoint.remove();}
@@ -456,37 +453,32 @@
 		// set the url we're going to send our http GET request to. rn it's localhost:9999 (this is set in the pythonHTTPServer.py file!)
 		// the line under this that says new URLSearchParams allows us to add extra parameters to this GET request
 			// we use this to add a parameter slot for start and destination, and we'll get those coords from the two text input slots
-			console.log("start coords are" + routeStartCoords)
-			console.log("start coords are" + routeEndCoords)
-			
-			const url = (
-			'http://localhost:9999?' +
-			new URLSearchParams({start: routeStartCoords, 
-								destination: routeEndCoords,
-								weight: document.getElementById('route-type').value}) //This gets the text value of our dropdown
-			);
+
+			const weight = document.getElementById('route-type').value;
+			const url = "https://lyloovmfzthzkjqstfuk.supabase.co/functions/v1/routing";
 
 		// this fetch request is JS's built-in API for making HTTP requests. It's an "await" function because it needs to be asynchronous
 			// because our pgrouting request takes so long
 		const response = await fetch(url, {
-			method: "GET",
+			method: "POST",
 			headers: {
-				"Content-Type": "text/html",
+				"Content-Type": "application/json",
 			},
-		})	
-		.then(response => {
-			if (!response.ok) {
-				throw new Error('Network response was not ok');
-				}
-        	return response.text(); 
+			body: JSON.stringify({
+				"x1": x1,
+				"y1": y1,
+				"x2": x2,
+				"y2": y2,
+				"weight": weight,
+			})
 		})
+		if (!response.ok) {
+                    throw new Error('response status: ${response.status}');
+        }	
 		// this is the segment that officially sets our pgrouting result
-			// the pgrouting result is data - right now we just store it in our coordinateInput text field
-		.then(data => {
-			console.log(data);
-			routeCoords = data})
-		.catch(error => console.error('There was a problem,', error));
-		console.log("got these from PG " + routeCoords);
+		const data = await response.json();
+		console.log("from edge function:" + data);
+		routeCoords = data;
 		return routeCoords;
 	}
 
