@@ -425,7 +425,8 @@
 	function addPolyline() {
 		// Get the input value and split it into individual coordinate pairs
 		const inputText = routeCoords;
-		const newText = inputText.substring(13,inputText.length - 2)
+		const newText = inputText.substring(11,inputText.length - 2)
+		// console.log("newText: ", newText);
 		const coordinatePairs = newText.split(',');
 
 		// Extract latitude and longitude for each pair and create LatLng objects
@@ -477,9 +478,9 @@
         }	
 		// this is the segment that officially sets our pgrouting result
 		const data = await response.json();
-		console.log("from edge function:" + data);
+		console.log("from edge function:" + JSON.stringify(data));
 		routeCoords = data;
-		return routeCoords;
+		return routeCoords.data;
 	}
 
 	async function getRoute() {
